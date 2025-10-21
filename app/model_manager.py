@@ -98,7 +98,9 @@ class LlamaModelManager:
                 disable_compile=True,
                 **kwargs
             )
-            
+
+            print("---"*20)
+            print(outputs)
             # Extract the generated text
             # Based on your code: outputs[0]['generated_text'][-1]['content']
             generated_content = outputs[0]['generated_text'][-1]['content']
