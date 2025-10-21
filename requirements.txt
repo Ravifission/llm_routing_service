@@ -1,0 +1,20 @@
+# Core dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# ML/Transformers
+torch>=2.0.0
+transformers>=4.35.0
+accelerate>=0.24.0
+
+# For downloading from Hugging Face Hub
+huggingface_hub>=0.19.0
+
+# Utilities
+python-dotenv==1.0.0
+
+# Development (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
