@@ -25,6 +25,16 @@ class Config:
     DEFAULT_TEMPERATURE = 0.01
     DEFAULT_MAX_NEW_TOKENS = 5
     
+    # Prompt formatting
+    # Options: 'llama_evaluation', 'plain', 'custom'
+    PROMPT_FORMATTER = os.getenv("PROMPT_FORMATTER", "llama_evaluation")
+    
+    # Custom template (only used if PROMPT_FORMATTER='custom')
+    CUSTOM_PROMPT_TEMPLATE = os.getenv(
+        "CUSTOM_PROMPT_TEMPLATE",
+        "{question}"
+    )
+    
     @classmethod
     def validate(cls):
         """Validate configuration."""

@@ -5,6 +5,9 @@ import logging
 from typing import Optional
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
+from config import Config
+from app.prompt_formatter import get_formatter
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +25,15 @@ class LlamaModelManager:
         self.model = None
         self.tokenizer = None
         self.pipe = None
+        
+        # Initialize prompt formatter based on config
+        formatter_kwargs = {}
+        if Config.PROMPT_FORMATTER == 'custom':
+            formatter_kwargs['template'] = Config.CUSTOM_PROMPT_TEMPLATE
+        
+        self.prompt_formatter = get_formatter(Config.PROMPT_FORMATTER, **formatter_kwargs)
+        logger.info(f"Using prompt formatter: {Config.PROMPT_FORMATTER}")
+        
         self._load_model()
     
     def _load_model(self):
@@ -90,9 +102,15 @@ class LlamaModelManager:
             raise RuntimeError("Model pipeline not initialized")
         
         try:
+            # Format the input text using the configured prompt formatter
+            formatted_input = self.prompt_formatter.format(input_text)
+
+            print("**"*20)
+            print(formatted_input)
+            
             # Generate output
             outputs = self.pipe(
-                input_text,
+                formatted_input,
                 temperature=temperature,
                 max_new_tokens=max_new_tokens,
                 disable_compile=True,
