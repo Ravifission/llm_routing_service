@@ -209,14 +209,14 @@ async def infer_number(request: InferenceRequest):
             response = InferenceResponse(
                 generated_text=generated_text + result_summary,
                 extracted_number=extracted_number,
-                sorted_results=sorted_results,
+                sorted_results=sorted_model_results,
                 success=True
             )
         else:
             response = InferenceResponse(
                 generated_text=generated_text,
                 extracted_number=extracted_number,
-                sorted_results=None,
+                sorted_results=sorted_results,
                 success=True
             )
         
