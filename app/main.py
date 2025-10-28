@@ -200,7 +200,7 @@ async def infer_number(request: InferenceRequest):
             # Sort by accuracy and convert to list of dicts for JSON serialization
             sorted_model_results = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
             sorted_results = [
-                {"model_name": name, "accuracy": acc} 
+                {name: float(acc)}
                 for name, acc in sorted_model_results
             ]
             
