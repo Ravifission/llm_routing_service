@@ -1,7 +1,7 @@
 """Pydantic models for API requests and responses."""
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
@@ -44,7 +44,7 @@ class InferenceResponse(BaseModel):
     success: bool = Field(..., description="Whether the inference was successful")
     error_message: Optional[str] = Field(None, description="Error message if inference failed")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
-    sorted_results: Optional[list] = Field(None, description="Sorted accuracy results for models")
+    sorted_results: Optional[List[Dict[str, Any]]] = Field(None, description="Sorted accuracy results for models")
     
     class Config:
         json_schema_extra = {

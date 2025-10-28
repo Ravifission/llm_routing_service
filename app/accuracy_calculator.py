@@ -1,12 +1,4 @@
-"""
-Filter and calculate accuracy for ground truth Excel data.
-
-This script:
-1. Reads the Excel file with model predictions (1-5) and score_pred (0 or 1)
-2. For each model, filters rows where model's prediction equals target_score
-3. Calculates accuracy as percentage of rows where score_pred == 1
-4. Returns accuracy percentages for each model
-"""
+"""Accuracy calculator for ground truth Excel data."""
 
 import pandas as pd
 from pathlib import Path
@@ -16,7 +8,7 @@ from typing import Dict, List, Optional
 _ground_truth_cache: Dict[str, pd.DataFrame] = {}
 
 
-def get_ground_truth_data(excel_path: str) -> pd.DataFrame:
+def _get_ground_truth_data(excel_path: str) -> pd.DataFrame:
     """
     Get ground truth DataFrame (cached - reads only once).
     
@@ -34,10 +26,10 @@ def get_ground_truth_data(excel_path: str) -> pd.DataFrame:
     return _ground_truth_cache[excel_path]
 
 
-def calculate_models_accuracy(
-    df: pd.DataFrame,
+def _calculate_model_accuracy_scores(
+    dataframe: pd.DataFrame,
     target_score: int = 5,
-    models: Optional[List[str]] = None
+    model_names: Optional[List[str]] = None
 ) -> Dict[str, float]:
     """
     Calculate accuracy for each model based on target_score.
@@ -47,52 +39,55 @@ def calculate_models_accuracy(
     2. Calculates what percentage of those rows have score_pred == 1 (correct)
     
     Args:
-        df: DataFrame with the data
+        dataframe: DataFrame with the data
         target_score: Target score to filter by (default: 5)
-        models: List of model names to process. If None, processes all models.
+        model_names: List of model names to process. If None, processes all models.
     
     Returns:
         Dictionary mapping model names to accuracy percentages
     """
     # If models not specified, get all model columns (exclude Question, Unnamed: 0, score_pred)
-    if models is None:
-        models = [col for col in df.columns if col not in ['Question', 'Unnamed: 0', 'score_pred']]
+    if model_names is None:
+        model_names = [
+            col for col in dataframe.columns 
+            if col not in ['Question', 'Unnamed: 0', 'score_pred']
+        ]
     
-    results = {}
+    accuracy_results = {}
     
     print(f"Calculating accuracy for predictions == {target_score}...")
     print()
     
-    for model_name in models:
+    for model_name in model_names:
         # Check if column exists
-        if model_name not in df.columns:
+        if model_name not in dataframe.columns:
             print(f"Warning: {model_name} not found in Excel")
             continue
         
         # Step 1: Filter rows where model's prediction equals target_score
-        filtered_df = df[df[model_name] == target_score].copy()
+        filtered_dataframe = dataframe[dataframe[model_name] == target_score].copy()
         
-        if len(filtered_df) == 0:
-            results[model_name] = 0.0
+        if len(filtered_dataframe) == 0:
+            accuracy_results[model_name] = 0.0
             print(f"{model_name:50s} 0.00% (0 rows with prediction == {target_score})")
             continue
         
         # Step 2: Calculate percentage where score_pred == 1 (correct answers)
-        correct_count = filtered_df['score_pred'].sum()  # Count where score_pred == 1
-        total_count = len(filtered_df)
-        percentage = (correct_count / total_count) * 100 if total_count > 0 else 0.0
+        correct_predictions_count = filtered_dataframe['score_pred'].sum()  # Count where score_pred == 1
+        total_predictions_count = len(filtered_dataframe)
+        accuracy_percentage = (correct_predictions_count / total_predictions_count) * 100 if total_predictions_count > 0 else 0.0
         
-        results[model_name] = percentage
+        accuracy_results[model_name] = accuracy_percentage
         
-        print(f"{model_name:50s} {percentage:6.2f}% ({correct_count}/{total_count} correct)")
+        print(f"{model_name:50s} {accuracy_percentage:6.2f}% ({correct_predictions_count}/{total_predictions_count} correct)")
     
-    return results
+    return accuracy_results
 
 
-def process_excel_file(
+def calculate_accuracy_from_excel(
     excel_path: str,
     target_score: int = 5,
-    models: Optional[List[str]] = None
+    model_names: Optional[List[str]] = None
 ) -> Dict[str, float]:
     """
     Main function to process the Excel file and calculate accuracy.
@@ -100,14 +95,14 @@ def process_excel_file(
     Args:
         excel_path: Path to input Excel file
         target_score: Target score to filter by (default: 5)
-        models: List of models to process (None = all)
+        model_names: List of models to process (None = all)
     
     Returns:
         Dictionary mapping model names to accuracy percentages
     
     Example:
         # Calculate accuracy for predictions == 5
-        results = process_excel_file(
+        results = calculate_accuracy_from_excel(
             excel_path="dataset/inference_on_pretrained_model.xlsx",
             target_score=5
         )
@@ -120,14 +115,14 @@ def process_excel_file(
     print()
     
     # Get cached or read Excel file ONCE (from cache)
-    df = get_ground_truth_data(excel_path)
+    dataframe = _get_ground_truth_data(excel_path)
     
     # Calculate accuracy
-    results = calculate_models_accuracy(df, target_score, models)
+    accuracy_results = _calculate_model_accuracy_scores(dataframe, target_score, model_names)
     
-    if not results:
+    if not accuracy_results:
         print("No results found")
-        return results
+        return accuracy_results
     
     # Print summary
     print("\n" + "="*80)
@@ -135,29 +130,29 @@ def process_excel_file(
     print("="*80)
     
     # Sort by accuracy (descending)
-    sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
+    sorted_model_results = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
     
-    for model_name, percentage in sorted_results:
-        print(f"{model_name:50s} {percentage:6.2f}%")
+    for model_name, accuracy_percentage in sorted_model_results:
+        print(f"{model_name:50s} {accuracy_percentage:6.2f}%")
     
-    return results
+    return accuracy_results
 
 
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 2:
-        print("Usage: python filter_ground_truth.py <excel_file_path> [target_score]")
+        print("Usage: python accuracy_calculator.py <excel_file_path> [target_score]")
         print("\nCalculates accuracy for each model where:")
         print("  - Model's prediction equals target_score")
         print("  - score_pred == 1 (correct answers)")
         print("\nExample:")
-        print("  python filter_ground_truth.py dataset/inference_on_pretrained_model.xlsx 5")
+        print("  python accuracy_calculator.py dataset/inference_on_pretrained_model.xlsx 5")
         sys.exit(1)
     
     excel_file = sys.argv[1]
     target_score = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     
     # Excel file is read only once (cached)
-    results = process_excel_file(excel_file, target_score)
+    results = calculate_accuracy_from_excel(excel_file, target_score)
 

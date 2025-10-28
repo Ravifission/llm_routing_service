@@ -12,7 +12,7 @@ from app.models import InferenceRequest, InferenceResponse, HealthResponse
 from app.model_manager import get_model_manager
 
 # Import accuracy calculation function
-from filter_ground_truth import process_excel_file
+from app.accuracy_calculator import calculate_accuracy_from_excel
 
 # Configure logging
 logging.basicConfig(
@@ -21,14 +21,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global model manager
-model_manager = None
+# Global model manager (private variable following Python conventions)
+_model_manager = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
-    global model_manager
+    global _model_manager
     
     # Startup
     logger.info("Starting Llama 3.2 1B Inference Service...")
@@ -48,10 +48,10 @@ async def lifespan(app: FastAPI):
                 raise FileNotFoundError(f"Model checkpoint not found: {checkpoint_dir}")
         
         logger.info(f"Loading model from: {checkpoint_dir}")
-        model_manager = get_model_manager(checkpoint_dir)
+        _model_manager = get_model_manager(checkpoint_dir)
         
         logger.info("Service started successfully!")
-        logger.info(f"Model device: {model_manager.get_device()}")
+        logger.info(f"Model device: {_model_manager.get_device()}")
         
     except Exception as e:
         logger.error(f"Failed to start service: {e}", exc_info=True)
@@ -94,16 +94,16 @@ async def root():
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health():
     """Health check endpoint."""
-    if model_manager is None:
+    if _model_manager is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Model not loaded"
         )
     
     return HealthResponse(
-        status="healthy" if model_manager.is_ready() else "unhealthy",
-        model_loaded=model_manager.is_ready(),
-        model_device=model_manager.get_device(),
+        status="healthy" if _model_manager.is_ready() else "unhealthy",
+        model_loaded=_model_manager.is_ready(),
+        model_device=_model_manager.get_device(),
         version=__version__
     )
 
@@ -115,14 +115,14 @@ async def generate_text(request: InferenceRequest):
     
     Returns only the generated text without extracting numbers.
     """
-    if model_manager is None or not model_manager.is_ready():
+    if _model_manager is None or not _model_manager.is_ready():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Model not ready"
         )
     
     try:
-        generated_text = model_manager.generate(
+        generated_text = _model_manager.generate(
             input_text=request.input_text,
             temperature=request.temperature,
             max_new_tokens=request.max_new_tokens
@@ -156,7 +156,7 @@ async def infer_number(request: InferenceRequest):
     - Uses that number as target_score to calculate accuracy
     - Returns both the text and the extracted number
     """
-    if model_manager is None or not model_manager.is_ready():
+    if _model_manager is None or not _model_manager.is_ready():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Model not ready"
@@ -164,14 +164,14 @@ async def infer_number(request: InferenceRequest):
     
     try:
         # Generate text
-        generated_text = model_manager.generate(
+        generated_text = _model_manager.generate(
             input_text=request.input_text,
             temperature=request.temperature,
             max_new_tokens=request.max_new_tokens
         )
         
         # Extract number from generated text
-        extracted_number = model_manager.extract_number(generated_text)
+        extracted_number = _model_manager.extract_number(generated_text)
         
         # Calculate accuracy using the extracted number as target_score
         # Default path to the ground truth Excel file
@@ -181,13 +181,13 @@ async def infer_number(request: InferenceRequest):
         if extracted_number is not None and os.path.exists(excel_path):
             try:
                 logger.info(f"Calculating accuracy for target_score={extracted_number}")
-                accuracy_results = process_excel_file(
+                accuracy_results = calculate_accuracy_from_excel(
                     excel_path=excel_path,
                     target_score=int(extracted_number)
                 )
                 logger.info(f"Accuracy calculation completed: {len(accuracy_results)} models analyzed")
-            except Exception as acc_error:
-                logger.warning(f"Accuracy calculation failed: {acc_error}")
+            except Exception as accuracy_error:
+                logger.warning(f"Accuracy calculation failed: {accuracy_error}")
         
         # Create response with accuracy results in the generated_text field
         # Format the results for better presentation
@@ -197,13 +197,13 @@ async def infer_number(request: InferenceRequest):
             result_summary += "-" * 60 + "\n"
             
             # Sort by accuracy and convert to list of dicts for JSON serialization
-            sorted_tuples = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
+            sorted_model_results = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
             sorted_results = [
                 {"model_name": name, "accuracy": acc} 
-                for name, acc in sorted_tuples
+                for name, acc in sorted_model_results
             ]
             
-            for model_name, accuracy in sorted_tuples:
+            for model_name, accuracy in sorted_model_results:
                 result_summary += f"{model_name:50s} {accuracy:6.2f}%\n"
             
             response = InferenceResponse(
@@ -258,10 +258,10 @@ def infer_number_from_text(
         result = infer_number_from_text("What is 2 + 2?")
         print(result)  # 4.0
     """
-    if model_manager is None:
+    if _model_manager is None:
         raise RuntimeError("Model not initialized")
     
-    return model_manager.generate_and_extract_number(
+    return _model_manager.generate_and_extract_number(
         input_text=input_text,
         temperature=temperature,
         max_new_tokens=max_new_tokens
