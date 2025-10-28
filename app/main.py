@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.models import InferenceRequest, InferenceResponse, HealthResponse
 from app.model_manager import get_model_manager
+from config import Config
 
 # Import accuracy calculation function
-from app.accuracy_calculator import calculate_accuracy_from_excel
+from app.accuracy_calculator import calculate_accuracy_from_dataset
 
 # Configure logging
 logging.basicConfig(
@@ -148,13 +149,13 @@ async def generate_text(request: InferenceRequest):
 async def infer_number(request: InferenceRequest):
     """
     Generate text and extract number from it.
-    Then calculates accuracy for that score using ground truth Excel file.
+    Then calculates accuracy for that score using benchmarking dataset.
     
     This is the main endpoint that matches your use case:
     - Generates text using the model
     - Extracts the number from the generated text
-    - Uses that number as target_score to calculate accuracy
-    - Returns both the text and the extracted number
+    - Uses that number as target_score to calculate accuracy against benchmarking dataset
+    - Returns both the text and the extracted number with model accuracy results
     """
     if _model_manager is None or not _model_manager.is_ready():
         raise HTTPException(
@@ -174,15 +175,15 @@ async def infer_number(request: InferenceRequest):
         extracted_number = _model_manager.extract_number(generated_text)
         
         # Calculate accuracy using the extracted number as target_score
-        # Default path to the ground truth Excel file
-        excel_path = "dataset/inference_on_pretrained_model.xlsx"
+        # Get path to the benchmarking dataset from config
+        dataset_path = Config.BENCHMARK_DATASET_PATH
         
         accuracy_results = {}
-        if extracted_number is not None and os.path.exists(excel_path):
+        if extracted_number is not None and os.path.exists(dataset_path):
             try:
                 logger.info(f"Calculating accuracy for target_score={extracted_number}")
-                accuracy_results = calculate_accuracy_from_excel(
-                    excel_path=excel_path,
+                accuracy_results = calculate_accuracy_from_dataset(
+                    dataset_path=dataset_path,
                     target_score=int(extracted_number)
                 )
                 logger.info(f"Accuracy calculation completed: {len(accuracy_results)} models analyzed")

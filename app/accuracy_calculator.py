@@ -1,29 +1,29 @@
-"""Accuracy calculator for ground truth Excel data."""
+"""Accuracy calculator for benchmarking dataset."""
 
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Cache for the ground truth DataFrame (loaded once)
-_ground_truth_cache: Dict[str, pd.DataFrame] = {}
+# Cache for the benchmarking dataset DataFrame (loaded once)
+_benchmark_dataset_cache: Dict[str, pd.DataFrame] = {}
 
 
-def _get_ground_truth_data(excel_path: str) -> pd.DataFrame:
+def _get_benchmark_dataset(dataset_path: str) -> pd.DataFrame:
     """
-    Get ground truth DataFrame (cached - reads only once).
+    Get benchmarking dataset DataFrame (cached - reads only once).
     
     Args:
-        excel_path: Path to Excel file
+        dataset_path: Path to benchmarking dataset file
         
     Returns:
-        DataFrame with the ground truth data
+        DataFrame with the benchmarking dataset data
     """
-    if excel_path not in _ground_truth_cache:
-        print(f"Loading Excel file: {excel_path}")
-        _ground_truth_cache[excel_path] = pd.read_excel(excel_path)
-        print(f"Loaded {len(_ground_truth_cache[excel_path])} rows\n")
+    if dataset_path not in _benchmark_dataset_cache:
+        print(f"Loading benchmarking dataset: {dataset_path}")
+        _benchmark_dataset_cache[dataset_path] = pd.read_excel(dataset_path)
+        print(f"Loaded {len(_benchmark_dataset_cache[dataset_path])} rows\n")
     
-    return _ground_truth_cache[excel_path]
+    return _benchmark_dataset_cache[dataset_path]
 
 
 def _calculate_model_accuracy_scores(
@@ -39,7 +39,7 @@ def _calculate_model_accuracy_scores(
     2. Calculates what percentage of those rows have score_pred == 1 (correct)
     
     Args:
-        dataframe: DataFrame with the data
+        dataframe: DataFrame with the benchmarking dataset
         target_score: Target score to filter by (default: 5)
         model_names: List of model names to process. If None, processes all models.
     
@@ -61,7 +61,7 @@ def _calculate_model_accuracy_scores(
     for model_name in model_names:
         # Check if column exists
         if model_name not in dataframe.columns:
-            print(f"Warning: {model_name} not found in Excel")
+            print(f"Warning: {model_name} not found in benchmarking dataset")
             continue
         
         # Step 1: Filter rows where model's prediction equals target_score
@@ -84,16 +84,16 @@ def _calculate_model_accuracy_scores(
     return accuracy_results
 
 
-def calculate_accuracy_from_excel(
-    excel_path: str,
+def calculate_accuracy_from_dataset(
+    dataset_path: str,
     target_score: int = 5,
     model_names: Optional[List[str]] = None
 ) -> Dict[str, float]:
     """
-    Main function to process the Excel file and calculate accuracy.
+    Main function to process the benchmarking dataset and calculate accuracy.
     
     Args:
-        excel_path: Path to input Excel file
+        dataset_path: Path to input benchmarking dataset file
         target_score: Target score to filter by (default: 5)
         model_names: List of models to process (None = all)
     
@@ -102,20 +102,20 @@ def calculate_accuracy_from_excel(
     
     Example:
         # Calculate accuracy for predictions == 5
-        results = calculate_accuracy_from_excel(
-            excel_path="dataset/inference_on_pretrained_model.xlsx",
+        results = calculate_accuracy_from_dataset(
+            dataset_path="dataset/inference_on_pretrained_model.xlsx",
             target_score=5
         )
     """
-    if not Path(excel_path).exists():
-        raise FileNotFoundError(f"Excel file not found: {excel_path}")
+    if not Path(dataset_path).exists():
+        raise FileNotFoundError(f"Benchmarking dataset file not found: {dataset_path}")
     
-    print(f"Processing: {Path(excel_path).name}")
+    print(f"Processing: {Path(dataset_path).name}")
     print(f"Target score: {target_score}")
     print()
     
-    # Get cached or read Excel file ONCE (from cache)
-    dataframe = _get_ground_truth_data(excel_path)
+    # Get cached or read benchmarking dataset ONCE (from cache)
+    dataframe = _get_benchmark_dataset(dataset_path)
     
     # Calculate accuracy
     accuracy_results = _calculate_model_accuracy_scores(dataframe, target_score, model_names)
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 2:
-        print("Usage: python accuracy_calculator.py <excel_file_path> [target_score]")
+        print("Usage: python accuracy_calculator.py <dataset_file_path> [target_score]")
         print("\nCalculates accuracy for each model where:")
         print("  - Model's prediction equals target_score")
         print("  - score_pred == 1 (correct answers)")
@@ -150,9 +150,9 @@ if __name__ == "__main__":
         print("  python accuracy_calculator.py dataset/inference_on_pretrained_model.xlsx 5")
         sys.exit(1)
     
-    excel_file = sys.argv[1]
+    dataset_file = sys.argv[1]
     target_score = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     
-    # Excel file is read only once (cached)
-    results = calculate_accuracy_from_excel(excel_file, target_score)
+    # Benchmarking dataset is read only once (cached)
+    results = calculate_accuracy_from_dataset(dataset_file, target_score)
 

@@ -35,6 +35,12 @@ class Config:
         "{question}"
     )
     
+    # Benchmarking dataset configuration
+    BENCHMARK_DATASET_PATH = os.getenv(
+        "BENCHMARK_DATASET_PATH",
+        "dataset/inference_on_pretrained_model.xlsx"
+    )
+    
     @classmethod
     def validate(cls):
         """Validate configuration."""
