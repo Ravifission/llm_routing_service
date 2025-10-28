@@ -98,7 +98,7 @@ def calculate_accuracy_from_dataset(
         model_names: List of models to process (None = all)
     
     Returns:
-        Dictionary mapping model names to accuracy percentages
+        Dictionary mapping model names to accuracy percentages (unsorted)
     
     Example:
         # Calculate accuracy for predictions == 5
@@ -117,25 +117,8 @@ def calculate_accuracy_from_dataset(
     # Get cached or read benchmarking dataset ONCE (from cache)
     dataframe = _get_benchmark_dataset(dataset_path)
     
-    # Calculate accuracy
-    accuracy_results = _calculate_model_accuracy_scores(dataframe, target_score, model_names)
-    
-    if not accuracy_results:
-        print("No results found")
-        return accuracy_results
-    
-    # Print summary
-    print("\n" + "="*80)
-    print("ACCURACY RESULTS (sorted by performance)")
-    print("="*80)
-    
-    # Sort by accuracy (descending)
-    sorted_model_results = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
-    
-    for model_name, accuracy_percentage in sorted_model_results:
-        print(f"{model_name:50s} {accuracy_percentage:6.2f}%")
-    
-    return accuracy_results
+    # Calculate accuracy and return raw results
+    return _calculate_model_accuracy_scores(dataframe, target_score, model_names)
 
 
 if __name__ == "__main__":
@@ -155,4 +138,14 @@ if __name__ == "__main__":
     
     # Benchmarking dataset is read only once (cached)
     results = calculate_accuracy_from_dataset(dataset_file, target_score)
+    
+    # Print sorted results
+    print("\n" + "="*80)
+    print("ACCURACY RESULTS (sorted by performance)")
+    print("="*80)
+    
+    sorted_model_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
+    
+    for model_name, accuracy_percentage in sorted_model_results:
+        print(f"{model_name:50s} {accuracy_percentage:6.2f}%")
 
