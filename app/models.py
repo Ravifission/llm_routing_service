@@ -44,6 +44,7 @@ class InferenceResponse(BaseModel):
     success: bool = Field(..., description="Whether the inference was successful")
     error_message: Optional[str] = Field(None, description="Error message if inference failed")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+    sorted_results: Optional[list] = Field(None, description="Sorted accuracy results for models")
     
     class Config:
         json_schema_extra = {
@@ -52,7 +53,8 @@ class InferenceResponse(BaseModel):
                 "extracted_number": 4.0,
                 "success": True,
                 "error_message": None,
-                "timestamp": "2025-10-21T12:00:00"
+                "timestamp": "2025-10-21T12:00:00",
+                "sorted_results": None
             }
         }
 

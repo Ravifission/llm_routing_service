@@ -11,6 +11,9 @@ from app import __version__
 from app.models import InferenceRequest, InferenceResponse, HealthResponse
 from app.model_manager import get_model_manager
 
+# Import accuracy calculation function
+from filter_ground_truth import process_excel_file
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -145,10 +148,12 @@ async def generate_text(request: InferenceRequest):
 async def infer_number(request: InferenceRequest):
     """
     Generate text and extract number from it.
+    Then calculates accuracy for that score using ground truth Excel file.
     
     This is the main endpoint that matches your use case:
     - Generates text using the model
     - Extracts the number from the generated text
+    - Uses that number as target_score to calculate accuracy
     - Returns both the text and the extracted number
     """
     if model_manager is None or not model_manager.is_ready():
@@ -165,20 +170,64 @@ async def infer_number(request: InferenceRequest):
             max_new_tokens=request.max_new_tokens
         )
         
-        # Extract number
+        # Extract number from generated text
         extracted_number = model_manager.extract_number(generated_text)
         
-        return InferenceResponse(
-            generated_text=generated_text,
-            extracted_number=extracted_number,
-            success=True
-        )
+        # Calculate accuracy using the extracted number as target_score
+        # Default path to the ground truth Excel file
+        excel_path = "dataset/inference_on_pretrained_model.xlsx"
+        
+        accuracy_results = {}
+        if extracted_number is not None and os.path.exists(excel_path):
+            try:
+                logger.info(f"Calculating accuracy for target_score={extracted_number}")
+                accuracy_results = process_excel_file(
+                    excel_path=excel_path,
+                    target_score=int(extracted_number)
+                )
+                logger.info(f"Accuracy calculation completed: {len(accuracy_results)} models analyzed")
+            except Exception as acc_error:
+                logger.warning(f"Accuracy calculation failed: {acc_error}")
+        
+        # Create response with accuracy results in the generated_text field
+        # Format the results for better presentation
+        sorted_results = None
+        if accuracy_results:
+            result_summary = f"\n\nAccuracy Results (target_score={extracted_number}):\n"
+            result_summary += "-" * 60 + "\n"
+            
+            # Sort by accuracy and convert to list of dicts for JSON serialization
+            sorted_tuples = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
+            sorted_results = [
+                {"model_name": name, "accuracy": acc} 
+                for name, acc in sorted_tuples
+            ]
+            
+            for model_name, accuracy in sorted_tuples:
+                result_summary += f"{model_name:50s} {accuracy:6.2f}%\n"
+            
+            response = InferenceResponse(
+                generated_text=generated_text + result_summary,
+                extracted_number=extracted_number,
+                sorted_results=sorted_results,
+                success=True
+            )
+        else:
+            response = InferenceResponse(
+                generated_text=generated_text,
+                extracted_number=extracted_number,
+                sorted_results=None,
+                success=True
+            )
+        
+        return response
         
     except Exception as e:
         logger.error(f"Inference failed: {e}", exc_info=True)
         return InferenceResponse(
             generated_text="",
             extracted_number=None,
+            sorted_results=None,
             success=False,
             error_message=str(e)
         )
