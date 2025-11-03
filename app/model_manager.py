@@ -152,7 +152,7 @@ class LlamaModelManager:
                 logger.warning(f"Could not convert '{match.group()}' to number")
                 return float(5)
         
-        logger.warning(f"No number found in text: '{text}'")
+        logger.warning(f"No number found in text. Setting Default value.")
         return float(5)
     
     def generate_and_extract_number(
