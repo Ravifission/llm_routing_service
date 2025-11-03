@@ -148,12 +148,12 @@ if __name__ == "__main__":
         logger.info("  - Model's Result column == 1 (correct answers)")
         logger.info("Example:  python accuracy_calculator.py dataset/ground_truth.csv 5")
         sys.exit(1)
-    
+
     dataset_file = sys.argv[1]
     target_score = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     
     # Benchmarking dataset is read only once (cached)
-    results = calculate_accuracy_from_dataset('/Users/fl_lpt-301/Documents/llm_routing_service/temp/llm_routing_service/dataset/ground_truth.csv', 5)
+    results = calculate_accuracy_from_dataset(dataset_file, target_score)
     
     # Log sorted results
     logger.info("\n" + "="*80)
