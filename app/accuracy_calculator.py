@@ -1,11 +1,15 @@
 """Accuracy calculator for benchmarking dataset."""
 
+import logging
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
 
 # Cache for the benchmarking dataset DataFrame (loaded once)
 _benchmark_dataset_cache: Dict[str, pd.DataFrame] = {}
+
+# Module logger
+logger = logging.getLogger(__name__)
 
 
 def _get_benchmark_dataset(dataset_path: str) -> pd.DataFrame:
@@ -19,9 +23,9 @@ def _get_benchmark_dataset(dataset_path: str) -> pd.DataFrame:
         DataFrame with the benchmarking dataset data
     """
     if dataset_path not in _benchmark_dataset_cache:
-        print(f"Loading benchmarking dataset: {dataset_path}")
-        _benchmark_dataset_cache[dataset_path] = pd.read_excel(dataset_path)
-        print(f"Loaded {len(_benchmark_dataset_cache[dataset_path])} rows\n")
+        logger.info(f"Loading benchmarking dataset: {dataset_path}")
+        _benchmark_dataset_cache[dataset_path] = pd.read_csv(dataset_path)
+        logger.info(f"Loaded {len(_benchmark_dataset_cache[dataset_path])} rows")
     
     return _benchmark_dataset_cache[dataset_path]
 
@@ -55,31 +59,33 @@ def _calculate_model_accuracy_scores(
     
     accuracy_results = {}
     
-    print(f"Calculating accuracy for predictions == {target_score}...")
-    print()
+    logger.info(f"Calculating accuracy for predictions == {target_score}...")
     
     for model_name in model_names:
         # Check if column exists
         if model_name not in dataframe.columns:
-            print(f"Warning: {model_name} not found in benchmarking dataset")
+            logger.warning(f"Model column not found in benchmarking dataset: {model_name}")
             continue
         
         # Step 1: Filter rows where model's prediction equals target_score
-        filtered_dataframe = dataframe[dataframe[model_name] == target_score].copy()
+        filtered_dataframe = dataframe[dataframe['Score_'+str(model_name)] == target_score].copy()
         
         if len(filtered_dataframe) == 0:
             accuracy_results[model_name] = 0.0
-            print(f"{model_name:50s} 0.00% (0 rows with prediction == {target_score})")
+            logger.info(f"{model_name:50s} 0.00% (0 rows with prediction == {target_score})")
             continue
         
         # Step 2: Calculate percentage where score_pred == 1 (correct answers)
-        correct_predictions_count = filtered_dataframe['score_pred'].sum()  # Count where score_pred == 1
+        correct_predictions_count = filtered_dataframe['Result_'+str(model_name)].sum()  # Count where score_pred == 1
         total_predictions_count = len(filtered_dataframe)
         accuracy_percentage = (correct_predictions_count / total_predictions_count) * 100 if total_predictions_count > 0 else 0.0
         
         accuracy_results[model_name] = accuracy_percentage
         
-        print(f"{model_name:50s} {accuracy_percentage:6.2f}% ({correct_predictions_count}/{total_predictions_count} correct)")
+        logger.info(
+            f"{model_name:50s} {accuracy_percentage:6.2f}% "
+            f"({correct_predictions_count}/{total_predictions_count} correct)"
+        )
     
     return accuracy_results
 
@@ -110,9 +116,8 @@ def calculate_accuracy_from_dataset(
     if not Path(dataset_path).exists():
         raise FileNotFoundError(f"Benchmarking dataset file not found: {dataset_path}")
     
-    print(f"Processing: {Path(dataset_path).name}")
-    print(f"Target score: {target_score}")
-    print()
+    logger.info(f"Processing benchmarking dataset: {Path(dataset_path).name}")
+    logger.info(f"Target score: {target_score}")
     
     # Get cached or read benchmarking dataset ONCE (from cache)
     dataframe = _get_benchmark_dataset(dataset_path)
@@ -123,14 +128,14 @@ def calculate_accuracy_from_dataset(
 
 if __name__ == "__main__":
     import sys
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     
     if len(sys.argv) < 2:
-        print("Usage: python accuracy_calculator.py <dataset_file_path> [target_score]")
-        print("\nCalculates accuracy for each model where:")
-        print("  - Model's prediction equals target_score")
-        print("  - score_pred == 1 (correct answers)")
-        print("\nExample:")
-        print("  python accuracy_calculator.py dataset/inference_on_pretrained_model.xlsx 5")
+        logger.error("Usage: python accuracy_calculator.py <dataset_file_path> [target_score]")
+        logger.info("Calculates accuracy for each model where:")
+        logger.info("  - Model's prediction equals target_score")
+        logger.info("  - score_pred == 1 (correct answers)")
+        logger.info("Example:  python accuracy_calculator.py dataset/inference_on_pretrained_model.xlsx 5")
         sys.exit(1)
     
     dataset_file = sys.argv[1]
@@ -139,13 +144,13 @@ if __name__ == "__main__":
     # Benchmarking dataset is read only once (cached)
     results = calculate_accuracy_from_dataset(dataset_file, target_score)
     
-    # Print sorted results
-    print("\n" + "="*80)
-    print("ACCURACY RESULTS (sorted by performance)")
-    print("="*80)
+    # Log sorted results
+    logger.info("\n" + "="*80)
+    logger.info("ACCURACY RESULTS (sorted by performance)")
+    logger.info("="*80)
     
     sorted_model_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
     
     for model_name, accuracy_percentage in sorted_model_results:
-        print(f"{model_name:50s} {accuracy_percentage:6.2f}%")
+        logger.info(f"{model_name:50s} {accuracy_percentage:6.2f}%")
 

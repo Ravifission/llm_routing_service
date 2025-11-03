@@ -1,6 +1,7 @@
 """Pydantic models for API requests and responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic.config import ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -35,16 +36,51 @@ class InferenceRequest(BaseModel):
             }
         }
 
+    # Forbid unexpected fields
+    model_config = ConfigDict(extra='forbid')
+
+    @field_validator('input_text')
+    @classmethod
+    def validate_input_text(cls, v: str) -> str:
+        # Normalize whitespace and ensure non-empty after strip
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("input_text must not be empty or whitespace-only")
+        return cleaned
+
+
+class SortedResultItem(BaseModel):
+    """Represents a single model's accuracy result entry."""
+    model_name: str = Field(..., min_length=1, description="Model identifier")
+    accuracy: float = Field(..., ge=0.0, le=100.0, description="Accuracy percentage (0-100)")
+
+    model_config = ConfigDict(extra='forbid')
 
 class InferenceResponse(BaseModel):
     """Response model for inference."""
     
     generated_text: str = Field(..., description="Generated text from the model")
-    extracted_number: Optional[float] = Field(None, description="Extracted number from generated text")
+    extracted_number: Optional[float] = Field(
+        None,
+        description="Extracted number from generated text",
+        ge=1.0,
+        le=5.0
+    )
     success: bool = Field(..., description="Whether the inference was successful")
     error_message: Optional[str] = Field(None, description="Error message if inference failed")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
-    sorted_results: Optional[List[Dict[str, Any]]] = Field(None, description="Sorted accuracy results for models")
+    sorted_results: Optional[List[SortedResultItem]] = Field(None, description="Sorted accuracy results for models")
+    
+    model_config = ConfigDict(extra='forbid')
+
+    @field_validator('generated_text')
+    @classmethod
+    def validate_generated_text(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("generated_text must not be empty")
+        return v.strip()
+
+    
     
     class Config:
         json_schema_extra = {
@@ -54,7 +90,9 @@ class InferenceResponse(BaseModel):
                 "success": True,
                 "error_message": None,
                 "timestamp": "2025-10-21T12:00:00",
-                "sorted_results": None
+                "sorted_results": [
+                    {"model_name": "gpt-5", "accuracy": 52.34}
+                ]
             }
         }
 
@@ -67,4 +105,14 @@ class HealthResponse(BaseModel):
     model_device: str = Field(..., description="Device model is running on")
     version: str = Field(..., description="Service version")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(extra='forbid')
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        allowed = {"healthy", "unhealthy"}
+        if v not in allowed:
+            raise ValueError("status must be 'healthy' or 'unhealthy'")
+        return v
 

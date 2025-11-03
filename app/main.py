@@ -86,7 +86,7 @@ app.add_middleware(
 async def root():
     """Root endpoint."""
     return {
-        "service": "Llama 3.2 1B Inference Service",
+        "service": "LLM Routing Service",
         "version": __version__,
         "status": "running"
     }
@@ -200,7 +200,7 @@ async def infer_number(request: InferenceRequest):
             # Sort by accuracy and convert to list of dicts for JSON serialization
             sorted_model_results = sorted(accuracy_results.items(), key=lambda x: x[1], reverse=True)
             sorted_results = [
-                {name: float(acc)}
+                {"model_name": name, "accuracy": float(acc)}
                 for name, acc in sorted_model_results
             ]
             

@@ -105,8 +105,7 @@ class LlamaModelManager:
             # Format the input text using the configured prompt formatter
             formatted_input = self.prompt_formatter.format(input_text)
 
-            print("**"*20)
-            print(formatted_input)
+
             
             # Generate output
             outputs = self.pipe(
@@ -117,8 +116,6 @@ class LlamaModelManager:
                 **kwargs
             )
 
-            print("---"*20)
-            print(outputs)
             # Extract the generated text
             # Based on your code: outputs[0]['generated_text'][-1]['content']
             generated_content = outputs[0]['generated_text'][-1]['content']
