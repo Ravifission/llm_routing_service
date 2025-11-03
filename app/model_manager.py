@@ -153,7 +153,7 @@ class LlamaModelManager:
                 return float(5)
         
         logger.warning(f"No number found in text: '{text}'")
-        return None
+        return float(5)
     
     def generate_and_extract_number(
         self,
