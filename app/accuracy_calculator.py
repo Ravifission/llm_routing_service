@@ -39,8 +39,8 @@ def _calculate_model_accuracy_scores(
     Calculate accuracy for each model based on target_score.
     
     Logic:
-    1. Filters rows where model's prediction equals target_score
-    2. Calculates what percentage of those rows have score_pred == 1 (correct)
+    1. Filters rows where model's Score column equals target_score
+    2. Calculates what percentage of those rows have Result column == 1 (correct)
     
     Args:
         dataframe: DataFrame with the benchmarking dataset
@@ -50,33 +50,39 @@ def _calculate_model_accuracy_scores(
     Returns:
         Dictionary mapping model names to accuracy percentages
     """
-    # If models not specified, get all model columns (exclude Question, Unnamed: 0, score_pred)
+    # If models not specified, extract all unique model names from Score_ columns
     if model_names is None:
-        model_names = [
-            col for col in dataframe.columns 
-            if col not in ['Question', 'Unnamed: 0', 'score_pred']
-        ]
+        score_columns = [col for col in dataframe.columns if col.startswith('Score_')]
+        # Extract model names by removing 'Score_' prefix
+        model_names = [col.replace('Score_', '', 1) for col in score_columns]
     
     accuracy_results = {}
     
     logger.info(f"Calculating accuracy for predictions == {target_score}...")
+    logger.info(f"Found {len(model_names)} models to process")
     
     for model_name in model_names:
-        # Check if column exists
-        if model_name not in dataframe.columns:
-            logger.warning(f"Model column not found in benchmarking dataset: {model_name}")
+        score_col = f'Score_{model_name}'
+        result_col = f'Result_{model_name}'
+        
+        # Check if both columns exist
+        if score_col not in dataframe.columns:
+            logger.warning(f"Score column not found: {score_col}")
+            continue
+        if result_col not in dataframe.columns:
+            logger.warning(f"Result column not found: {result_col}")
             continue
         
-        # Step 1: Filter rows where model's prediction equals target_score
-        filtered_dataframe = dataframe[dataframe['Score_'+str(model_name)] == target_score].copy()
+        # Step 1: Filter rows where model's score prediction equals target_score
+        filtered_dataframe = dataframe[dataframe[score_col] == target_score].copy()
         
         if len(filtered_dataframe) == 0:
             accuracy_results[model_name] = 0.0
-            logger.info(f"{model_name:50s} 0.00% (0 rows with prediction == {target_score})")
+            logger.info(f"{model_name:50s} 0.00% (0 rows with score == {target_score})")
             continue
         
-        # Step 2: Calculate percentage where score_pred == 1 (correct answers)
-        correct_predictions_count = filtered_dataframe['Result_'+str(model_name)].sum()  # Count where score_pred == 1
+        # Step 2: Calculate percentage where Result == 1 (correct answers)
+        correct_predictions_count = filtered_dataframe[result_col].sum()  # Count where Result == 1
         total_predictions_count = len(filtered_dataframe)
         accuracy_percentage = (correct_predictions_count / total_predictions_count) * 100 if total_predictions_count > 0 else 0.0
         
@@ -84,7 +90,7 @@ def _calculate_model_accuracy_scores(
         
         logger.info(
             f"{model_name:50s} {accuracy_percentage:6.2f}% "
-            f"({correct_predictions_count}/{total_predictions_count} correct)"
+            f"({int(correct_predictions_count)}/{total_predictions_count} correct)"
         )
     
     return accuracy_results
@@ -98,10 +104,15 @@ def calculate_accuracy_from_dataset(
     """
     Main function to process the benchmarking dataset and calculate accuracy.
     
+    The CSV file should have:
+    - 'prompt' column with questions
+    - 'Score_{model_name}' columns with predicted scores (1-5)
+    - 'Result_{model_name}' columns with correctness (0 or 1)
+    
     Args:
-        dataset_path: Path to input benchmarking dataset file
-        target_score: Target score to filter by (default: 5)
-        model_names: List of models to process (None = all)
+        dataset_path: Path to input benchmarking dataset file (CSV format)
+        target_score: Target score to filter by (1-5, default: 5)
+        model_names: List of model names to process (None = all models from Score_ columns)
     
     Returns:
         Dictionary mapping model names to accuracy percentages (unsorted)
@@ -109,7 +120,7 @@ def calculate_accuracy_from_dataset(
     Example:
         # Calculate accuracy for predictions == 5
         results = calculate_accuracy_from_dataset(
-            dataset_path="dataset/inference_on_pretrained_model.xlsx",
+            dataset_path="dataset/ground_truth.csv",
             target_score=5
         )
     """
@@ -133,16 +144,16 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         logger.error("Usage: python accuracy_calculator.py <dataset_file_path> [target_score]")
         logger.info("Calculates accuracy for each model where:")
-        logger.info("  - Model's prediction equals target_score")
-        logger.info("  - score_pred == 1 (correct answers)")
-        logger.info("Example:  python accuracy_calculator.py dataset/inference_on_pretrained_model.xlsx 5")
+        logger.info("  - Model's Score column equals target_score")
+        logger.info("  - Model's Result column == 1 (correct answers)")
+        logger.info("Example:  python accuracy_calculator.py dataset/ground_truth.csv 5")
         sys.exit(1)
     
     dataset_file = sys.argv[1]
     target_score = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     
     # Benchmarking dataset is read only once (cached)
-    results = calculate_accuracy_from_dataset(dataset_file, target_score)
+    results = calculate_accuracy_from_dataset('/Users/fl_lpt-301/Documents/llm_routing_service/temp/llm_routing_service/dataset/ground_truth.csv', 5)
     
     # Log sorted results
     logger.info("\n" + "="*80)
