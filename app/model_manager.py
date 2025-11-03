@@ -150,7 +150,7 @@ class LlamaModelManager:
                 return float(match.group())
             except ValueError:
                 logger.warning(f"Could not convert '{match.group()}' to number")
-                return None
+                return float(5)
         
         logger.warning(f"No number found in text: '{text}'")
         return None
